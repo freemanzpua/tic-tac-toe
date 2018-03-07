@@ -1,0 +1,210 @@
+<html>
+	<head>
+		<style>
+			#container .block {
+				width: 100px;
+				height: 100px;
+				border: 1px solid #ccc;
+				cursor: pointer;
+				float: left;
+				text-align: center;
+				font-size: 100px;
+				line-height: 94px;
+			}
+			#container .block.turn-x {
+				color: red;
+			}
+			.clear {
+				clear: both;
+			}
+			.winner {
+				background-color: gray;
+			}
+			#buttons {
+				margin-top: 20px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="main">
+			<div id="container"></div>
+			<div id="buttons">
+				<input id="size" type="number" value="3" min="1">
+				<input id="reload" type="button" value="Reload">
+			</div>
+		</div>
+		<script type="text/javascript">
+			function ticTacToe() {
+				var $this = this;
+				$this.container = document.getElementById("container");
+				$this.sizeInput = document.getElementById("size");
+				$this.size = 3;
+				$this.inProgress = false;
+				$this.moves = {};
+				$this.scores = {};
+				$this.turn = "x";
+				$this.load = function() {
+					var hash = window.location.hash.split('#');
+					if (typeof hash[1] === 'undefined') {
+						$this.reload();
+						return;
+					}
+
+					$this.inProgress = true;
+					try {
+						var hash = hash[1].split(';');
+						$this.sizeInput.value = $this.size = parseInt(hash.shift());
+						$this.refreshField();
+						var cell, move;
+
+						for (var i = 0; i < hash.length; i++) {
+							move = hash[i].split(',');
+							cell = document.getElementsByClassName("row-" + move[0] + " col-" + move[1])[0];
+							$this.processClisk(cell, $this.turn);
+							$this.checkWinner();
+							$this.turn = ($this.turn === "x" ? "o" : "x");
+						}
+					} catch (e) {
+						$this.reload();
+					}
+				};
+				$this.reload = function() {
+					$this.size = parseInt($this.sizeInput.value) || 3;
+					window.location.hash = "#" + $this.size;
+					$this.refreshField();
+					$this.inProgress = true;
+					$this.turn = "x";
+				};
+				$this.refreshField = function() {
+					var cell, clear;
+					$this.container.innerHTML = "";
+					$this.moves = {
+						"x": 0,
+						"o": 0
+					};
+					$this.scores = {
+						"x": {
+							"firstDiagonal": 0,
+							"secondDiagonal": 0,
+							"rows": [],
+							"cols": []
+						},
+						"o": {
+							"firstDiagonal": 0,
+							"secondDiagonal": 0,
+							"rows": [],
+							"cols": []
+						}
+					};
+
+					for (var i = 0; i < $this.size; i++) {
+						$this.scores.x.rows[i] =
+						$this.scores.x.cols[i] =
+						$this.scores.o.rows[i] =
+						$this.scores.o.cols[i] = 0;
+						for (var j = 0; j < $this.size; j++) {
+							cell = document.createElement("div");
+							cell.className = "block row-" + i + " col-" + j;
+
+							if (i === j)
+								cell.classList.add("first-diagonal");
+
+							if (i + j === $this.size - 1)
+								cell.classList.add("second-diagonal");
+
+							cell.dataset.col = j;
+							cell.dataset.row = i;
+							cell.addEventListener("click", $this.click);
+							$this.container.append(cell);
+						}
+
+						clear = document.createElement("div");
+						clear.className = "clear";
+						$this.container.append(clear);
+					}
+				};
+				$this.click = function() {
+					if ($this.inProgress === false)
+						return;
+
+					$this.processClisk(this, $this.turn);
+					$this.checkWinner();
+					$this.turn = ($this.turn === "x" ? "o" : "x");
+					window.location.hash = window.location.hash + ";" + this.dataset.row + "," + this.dataset.col;
+				};
+				$this.processClisk = function(el, player) {
+					el.removeEventListener("click", $this.click);
+					el.classList.add("turn-" + player);
+					el.innerHTML = player;
+					var row = parseInt(el.dataset.row);
+					var col = parseInt(el.dataset.col);
+					$this.scores[player].rows[row]++;
+					$this.scores[player].cols[col]++;
+
+					if (row === col)
+						$this.scores[player].firstDiagonal++;
+
+					if (row + col === $this.size - 1)
+						$this.scores[player].secondDiagonal++;
+
+					$this.moves[player]++;
+				};
+				$this.checkWinner = function() {
+					if ($this.moves.x + $this.moves.o < $this.size * 2 - 1)
+						return;
+
+					if ($this.scores[$this.turn].firstDiagonal === $this.size) {
+						$this.setWinner("first-diagonal");
+						return;
+					}
+
+					if ($this.scores[$this.turn].secondDiagonal === $this.size) {
+						$this.setWinner("second-diagonal");
+						return;
+					}
+
+					for (var i = 0; i < $this.size; i++) {
+						if ($this.scores[$this.turn].rows[i] === $this.size) {
+							$this.setWinner("row-" + i);
+							return;
+						}
+						if ($this.scores[$this.turn].cols[i] === $this.size) {
+							$this.setWinner("col-" + i);
+							return;
+						}
+					}
+
+					if ($this.moves.x + $this.moves.o === Math.pow($this.size, 2)) {
+						$this.setWinner('', true);
+					}
+				};
+				$this.setWinner = function(classSelector, draw) {
+					$this.inProgress = false;
+					draw = draw || false;
+
+					if (draw === true) {
+						setTimeout(function() {
+							if (confirm("It's a draw. Start a new game?"))
+								$this.reload();
+						}, 100);
+						return;
+					}
+
+					var cells = document.getElementsByClassName(classSelector);
+					for (var i = 0; i < cells.length; i++) {
+						cells[i].classList.add("winner");
+					}
+
+					setTimeout(function(player) {
+						if (confirm("The '" + player + "' player wins! Total moves count: " + ($this.moves.x + $this.moves.o) + ". Start a new game?"))
+							$this.reload();
+					}, 100, $this.turn);
+				};
+			};
+			
+			var game = new ticTacToe();
+			game.load();
+			document.getElementById("reload").addEventListener("click", game.reload);
+		</script>
+	</body>
+</html>
